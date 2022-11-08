@@ -16,10 +16,7 @@ import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 
 import java.io.IOException;
 import java.net.URI;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.StringTokenizer;
+import java.util.*;
 
 
 public class Compression {
@@ -57,7 +54,9 @@ public class Compression {
     }
     public static class IndexReducer
             extends Reducer<Text, PairOfInts, Text, Text> {
-
+        Integer indexcnt = 0;
+        Integer longestIndex = 0;
+        HashSet<String> wordset = new HashSet<>();
         public void reduce(Text key, Iterable<PairOfInts> values,
                            Context context
         ) throws IOException, InterruptedException {
@@ -77,12 +76,27 @@ public class Compression {
             Collections.sort(list);
             StringBuilder sb = new StringBuilder();
             Integer prev = 0;
+            int cnt = 0;
             for(PairOfInts p : list){
                 Integer diff = p.getLeftElement() - prev;
                 prev = p.getLeftElement();
+                cnt += 1;
                 sb.append(diff.toString() + ":" + p.getRightElement() + ";");
             }
+            if(cnt > longestIndex){
+                longestIndex = cnt;
+                wordset.clear();
+                wordset.add(key.toString());
+            }
+            else if(cnt == longestIndex){
+                wordset.add(key.toString());
+            }
             context.write(key, new Text(sb.toString()));
+        }
+        public void cleanup(Context context) throws IOException, InterruptedException {
+            context.write(new Text("Total Index Count"), new Text(indexcnt.toString()));
+            context.write(new Text("Longest Index"), new Text(longestIndex.toString()));
+            context.write(new Text("Words with Longest Index"), new Text(wordset.toString()));
         }
     }
 
@@ -107,8 +121,11 @@ public class Compression {
         FileOutputFormat.setOutputPath(job1, new Path("/Compression"));
 //        FileInputFormat.setMaxInputSplitSize(job1, 1000000000);
 //        FileInputFormat.setMinInputSplitSize(job1, 1000000000);
-
+// record time
+        long startTime = System.currentTimeMillis();
         job1.waitForCompletion(true);
+        long endTime = System.currentTimeMillis();
+        System.out.println("Time taken: " + (endTime - startTime) + "ms");
 
         System.exit(0);
     }

@@ -52,7 +52,9 @@ public class Index {
 
     public static class IndexReducer
             extends Reducer<Text, PairOfStringInt, Text, Text> {
-
+        Integer indexcnt = 0;
+        Integer longestIndex = 0;
+        HashSet<String> wordset = new HashSet<>();
         public void reduce(Text key, Iterable<PairOfStringInt> values,
                            Context context
         ) throws IOException, InterruptedException {
@@ -65,10 +67,26 @@ public class Index {
                 }
             }
             StringBuilder sb = new StringBuilder();
+            int cnt = 0;
             for (String f : files.keySet()) {
                 sb.append(f + ":" + files.get(f) + ";");
+                cnt += 1;
+            }
+            indexcnt += cnt;
+            if(cnt > longestIndex){
+                longestIndex = cnt;
+                wordset.clear();
+                wordset.add(key.toString());
+            }
+            else if (cnt == longestIndex){
+                wordset.add(key.toString());
             }
             context.write(key, new Text(sb.toString()));
+        }
+        public void cleanup(Context context) throws IOException, InterruptedException {
+            context.write(new Text("Total Index Count"), new Text(indexcnt.toString()));
+            context.write(new Text("Longest Index"), new Text(longestIndex.toString()));
+            context.write(new Text("Words with Longest Index"), new Text(wordset.toString()));
         }
     }
 
@@ -92,9 +110,10 @@ public class Index {
         FileOutputFormat.setOutputPath(job1, new Path("/Index"));
 //        FileInputFormat.setMaxInputSplitSize(job1, 1000000000);
 //        FileInputFormat.setMinInputSplitSize(job1, 1000000000);
-
+        long startTime = System.currentTimeMillis();
         job1.waitForCompletion(true);
-
+        long endTime = System.currentTimeMillis();
+        System.out.println("Time taken: " + (endTime - startTime) + "ms");
         System.exit(0);
     }
 }
